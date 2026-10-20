@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Track your piece - 3brokegirls</title>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="/"><img src="/logo.svg" alt=""><span>3brokegirls</span></a>
+      <nav aria-label="Main">
+        <a href="/" aria-current="page">Track a piece</a>
+        <a href="/staff.html">Staff</a>
+        <a href="/labels.html">Tags</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <h1>Every stitch has a paper trail.</h1>
+      <p class="lead">Type the number on your hang-tag, or scan its QR code, and see who made your piece, who moved it and where it has been.</p>
+
+      <div class="tag">
+        <form id="lookup">
+          <div class="field">
+            <label for="pieceId">Number on your tag</label>
+            <input id="pieceId" name="id" type="number" min="1" step="1" inputmode="numeric" placeholder="for example 1" required>
+          </div>
+          <button class="btn" type="submit">Show its journey</button>
+        </form>
+      </div>
+    </section>
+
+    <div id="message" class="status" role="status" aria-live="polite" hidden></div>
+    <section id="result" hidden></section>
+  </main>
+
+  <script src="/vendor/ethers.js"></script>
+  <script src="/common.js"></script>
+  <script>
+    (function () {
+      const { STAGES, ROLES, esc, short, fmtDate } = BG;
+      const form = document.getElementById("lookup");
+      const input = document.getElementById("pieceId");
+      const msg = document.getElementById("message");
+      const out = document.getElementById("result");
+
+      function say(text, kind) {
+        msg.textContent = text;
+        msg.className = "status " + (kind || "");
+        msg.hidden = !text;
+      }
+
+      function stepHtml(stage, i, piece, history) {
+        const rec = history.find((h) => h.stage === i);
+        const latest = rec && i === piece.stage;
+        const cls = !rec ? "todo" : latest ? "latest" : "done";
+        let body;
+        if (rec) {
+          body =
+            `<p>${esc(rec.location || stage.line)}</p>` +
+            (rec.note ? `<p class="muted">${esc(rec.note)}</p>` : "") +
+            `<p class="when">${esc(fmtDate(rec.timestamp))}, recorded by the ${esc(ROLES[rec.role].toLowerCase())} ` +
+            `<span class="addr" title="${esc(rec.actor)}">${esc(short(rec.actor))}</span></p>`;
+        } else {
+          body = `<p>Still to come. A ${esc(stage.by.toLowerCase())} records this step.</p>`;
+        }
+        return (
+          `<li class="step ${cls}" style="--i:${i}">` +
+          `<span class="knot" aria-hidden="true">${stage.icon}</span>` +
+          `<div class="stepcard"><h3>${esc(stage.label)}${latest ? ' <span class="chip">' + (piece.stage === 5 ? "Final step" : "Latest") + "</span>" : ""}</h3>${body}</div>` +
+          `</li>`
+        );
+      }
+
+      function render(data) {
+        const { product: p, history, count } = data;
+        const sold = p.stage === 5;
+        out.innerHTML =
+          `<article class="panel piece">` +
+          `<h2>${esc(p.name)}</h2>` +
+          `<p class="muted">${sold ? "This piece has found its person." : "Currently: " + esc(STAGES[p.stage].label.toLowerCase()) + "."}</p>` +
+          `<dl>` +
+          `<dt>Piece number</dt><dd>${p.id}</dd>` +
+          `<dt>Kind</dt><dd>${esc(p.category)}</dd>` +
+          `<dt>Batch</dt><dd>${esc(p.batchCode)}</dd>` +
+          `<dt>Made with</dt><dd>${esc(p.materials)}</dd>` +
+          `<dt>Made by</dt><dd>3brokegirls <span class="addr" title="${esc(p.maker)}">${esc(short(p.maker))}</span></dd>` +
+          `<dt>Started</dt><dd>${esc(fmtDate(p.createdAt))}</dd>` +
+          `</dl>` +
+          `</article>` +
+          `<ol class="thread" aria-label="Journey of ${esc(p.name)}">` +
+          STAGES.map((s, i) => stepHtml(s, i, p, history)).join("") +
+          `</ol>` +
+          `<section class="proof panel">` +
+          `<h3>Why you can trust this</h3>` +
+          `<p>Every step above is its own transaction on the blockchain, signed by the person who did it. ` +
+          `The contract has no way to edit or delete an earlier step, and each step can only be added by the right role, in order.</p>` +
+          `<p class="muted">${history.length} of 6 steps recorded for piece ${p.id}. ${count} pieces in the system. Contract <span class="addr">${esc(BG._address || "")}</span></p>` +
+          `</section>`;
+        out.hidden = false;
+      }
+
+      async function show(id) {
+        out.hidden = true;
+        say("Looking it up…");
+        try {
+          const ctx = await BG.init();
+          BG._address = ctx.cfg.address;
+          const data = await BG.getPiece(id);
+          if (!data) {
+            say("No piece with number " + id + ". Check the number on the hang-tag and try again.", "bad");
+            return;
+          }
+          say("");
+          render(data);
+          out.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+        } catch (e) {
+          say(BG.initProblem(e), "bad");
+        }
+      }
+
+      form.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        const id = Number(input.value);
+        history.replaceState(null, "", "?id=" + encodeURIComponent(id));
+        show(id);
+      });
+
+      const fromUrl = new URLSearchParams(location.search).get("id");
+      if (fromUrl) {
+        input.value = fromUrl;
+        show(Number(fromUrl));
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QR hang-tags - 3brokegirls</title>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="/"><img src="/logo.svg" alt=""><span>3brokegirls</span></a>
+      <nav aria-label="Main">
+        <a href="/">Track a piece</a>
+        <a href="/staff.html">Staff</a>
+        <a href="/labels.html" aria-current="page">Tags</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap" style="padding-top:28px;padding-bottom:56px">
+    <div class="noprint">
+      <h1 style="font-size:clamp(2rem,5vw,2.8rem);max-width:none">QR hang-tags</h1>
+      <p class="lead" style="margin-top:8px">Print these, cut them out and tie one to each piece. Scanning a tag opens that piece's journey.</p>
+
+      <section class="panel">
+        <div class="grid2">
+          <div class="full">
+            <label for="base">Where should the QR codes point?</label>
+            <select id="base"></select>
+          </div>
+          <div class="full">
+            <label for="custom">Or type your own address</label>
+            <input id="custom" type="url" placeholder="http://192.168.1.20:3000">
+          </div>
+        </div>
+        <p class="muted" id="hint" style="margin:12px 0 0"></p>
+        <p style="margin:14px 0 0"><button class="btn" id="print" type="button">Print tags</button></p>
+      </section>
+    </div>
+
+    <div id="message" class="status noprint" role="status" aria-live="polite" hidden></div>
+    <section id="sheet" class="tagsheet" aria-label="Hang-tags"></section>
+  </main>
+
+  <script src="/vendor/ethers.js"></script>
+  <script src="/common.js"></script>
+  <script>
+    (async function () {
+      const { esc } = BG;
+      const $ = (s) => document.querySelector(s);
+      let pieces = [];
+
+      function base() {
+        const typed = $("#custom").value.trim().replace(/\/+$/, "");
+        return typed || $("#base").value;
+      }
+
+      function draw() {
+        const b = base();
+        $("#sheet").innerHTML = pieces
+          .slice()
+          .sort((x, y) => x.id - y.id)
+          .map((p) => {
+            const url = b + "/?id=" + p.id;
+            return (
+              `<figure class="hangtag" style="margin:0">` +
+              `<img src="/api/qr?text=${encodeURIComponent(url)}" alt="QR code for piece number ${p.id}" width="170" height="170">` +
+              `<h3>${esc(p.name)}</h3>` +
+              `<p>No. ${p.id}, batch ${esc(p.batchCode || "not set")}</p>` +
+              `<p class="brandline">3brokegirls</p>` +
+              `</figure>`
+            );
+          })
+          .join("");
+      }
+
+      try {
+        pieces = await BG.listPieces();
+        const info = await (await fetch("/api/info")).json();
+        const here = location.origin;
+        const onLocalhost = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+        const options = [...info.lan, here].filter((u, i, a) => a.indexOf(u) === i);
+        // On localhost, put the Wi-Fi address first: a phone can't reach "localhost".
+        if (!onLocalhost) options.sort((a) => (a === here ? -1 : 1));
+        $("#base").innerHTML = options.map((u) => `<option value="${esc(u)}">${esc(u)}</option>`).join("");
+        $("#hint").textContent = info.lan.length
+          ? "Phones on the same Wi-Fi can only open the Wi-Fi address (the one that isn't localhost). Pick that one if you want to test scanning."
+          : "No Wi-Fi address found. QR codes will only work on this computer until you connect to a network or type an address above.";
+        if (!pieces.length) {
+          const m = $("#message");
+          m.textContent = "No pieces yet. Add one on the Staff page and its tag will show up here.";
+          m.hidden = false;
+        }
+        draw();
+      } catch (e) {
+        const m = $("#message");
+        m.textContent = BG.initProblem(e);
+        m.className = "status bad noprint";
+        m.hidden = false;
+      }
+
+      $("#base").addEventListener("change", draw);
+      $("#custom").addEventListener("input", draw);
+      $("#print").addEventListener("click", () => window.print());
+    })();
+  </script>
+</body>
+</html>

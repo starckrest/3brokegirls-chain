@@ -1,0 +1,25 @@
+{
+  "name": "3brokegirls-chain",
+  "version": "1.0.0",
+  "description": "Blockchain supply-chain tracker for 3brokegirls handmade crochet goods (Solidity + Ganache + HTML)",
+  "private": true,
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "demo": "node scripts/dev.js",
+    "compile": "node scripts/compile.js",
+    "chain": "ganache --wallet.deterministic --chain.chainId 1337 --server.port 8545",
+    "deploy": "node scripts/deploy.js",
+    "start": "node server.js",
+    "test": "node scripts/test.js"
+  },
+  "dependencies": {
+    "ethers": "^6.13.0",
+    "ganache": "^7.9.2",
+    "qrcode": "^1.5.4",
+    "solc": "0.8.26"
+  },
+  "license": "MIT"
+}

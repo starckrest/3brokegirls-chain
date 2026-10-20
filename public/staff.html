@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Staff panel - 3brokegirls</title>
+  <link rel="icon" href="/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="/"><img src="/logo.svg" alt=""><span>3brokegirls</span></a>
+      <nav aria-label="Main">
+        <a href="/">Track a piece</a>
+        <a href="/staff.html" aria-current="page">Staff</a>
+        <a href="/labels.html">Tags</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap" style="padding-top:28px;padding-bottom:56px">
+    <h1 style="font-size:clamp(2rem,5vw,2.8rem);max-width:none">Staff panel</h1>
+    <p class="lead" style="margin-top:8px">Pick who you are working as, then add pieces or record the next step. Every save is a blockchain transaction.</p>
+
+    <div id="status" class="status" role="status" aria-live="polite" hidden></div>
+
+    <section class="panel" id="who">
+      <div class="staffbar">
+        <div class="field">
+          <label for="account">Working as</label>
+          <select id="account" disabled><option>Loading&hellip;</option></select>
+        </div>
+        <p style="margin:0 0 6px">Role: <span class="chip" id="rolechip">&hellip;</span></p>
+      </div>
+      <p class="muted" style="margin:12px 0 0">These are test wallets from Ganache. Each one holds a different job in the supply chain, so switch between them to walk a piece from the studio to the customer.</p>
+    </section>
+
+    <section class="panel" id="create" hidden>
+      <h2>Add a new piece</h2>
+      <form id="createForm" class="grid2">
+        <div>
+          <label for="c_name">Name</label>
+          <input id="c_name" required maxlength="80" placeholder="Sunflower granny-square tote">
+        </div>
+        <div>
+          <label for="c_cat">Kind</label>
+          <input id="c_cat" maxlength="40" placeholder="Bags" value="">
+        </div>
+        <div>
+          <label for="c_batch">Batch code</label>
+          <input id="c_batch" maxlength="40" placeholder="3BG-TOTE-0002">
+        </div>
+        <div>
+          <label for="c_loc">Where it was made</label>
+          <input id="c_loc" maxlength="60" value="3brokegirls Studio">
+        </div>
+        <div class="full">
+          <label for="c_mat">Made with</label>
+          <input id="c_mat" maxlength="140" placeholder="Cotton yarn, cotton lining">
+        </div>
+        <div class="full"><button class="btn" type="submit">Add piece</button></div>
+      </form>
+    </section>
+
+    <section class="panel" id="admin" hidden>
+      <h2>Who does what</h2>
+      <p class="muted">Only the shop owner can give a wallet a job. A wallet with no job can look at pieces but not add steps.</p>
+      <form id="roleForm" class="grid2">
+        <div>
+          <label for="r_acct">Wallet</label>
+          <select id="r_acct"></select>
+        </div>
+        <div>
+          <label for="r_role">Job</label>
+          <select id="r_role">
+            <option value="1">Maker</option>
+            <option value="2">Distributor</option>
+            <option value="3">Retailer</option>
+            <option value="0">No job</option>
+          </select>
+        </div>
+        <div class="full"><button class="btn quiet" type="submit">Save job</button></div>
+      </form>
+      <table class="roles" id="roleTable"></table>
+    </section>
+
+    <section>
+      <h2>Pieces</h2>
+      <div id="pieces" class="pieces"><p class="muted">Loading&hellip;</p></div>
+    </section>
+  </main>
+
+  <script src="/vendor/ethers.js"></script>
+  <script src="/common.js"></script>
+  <script>
+    (async function () {
+      const { STAGES, ROLES, esc, short, errMsg } = BG;
+      const $ = (s) => document.querySelector(s);
+      const statusEl = $("#status");
+      const st = { ctx: null, signer: null, address: null, role: 0, isOwner: false };
+      const DEFAULT_PLACE = { 1: "3brokegirls Studio", 2: "Stitch Express Sorting Hub", 3: "Sunday Craft Market" };
+
+      function say(html, kind) {
+        statusEl.innerHTML = html;
+        statusEl.className = "status " + (kind || "");
+        statusEl.hidden = !html;
+      }
+
+      // Run one blockchain write and keep the screen honest about it
+      async function run(workingText, action, doneHtml) {
+        document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+        say(esc(workingText));
+        try {
+          await action();
+          say(doneHtml, "ok");
+        } catch (e) {
+          say(esc(errMsg(e)), "bad");
+        } finally {
+          document.querySelectorAll("button").forEach((b) => (b.disabled = false));
+          await refresh();
+        }
+      }
+
+      async function refresh() {
+        st.role = Number(await st.ctx.contract.roles(st.address));
+        st.isOwner = (await st.ctx.contract.owner()).toLowerCase() === st.address.toLowerCase();
+        $("#rolechip").textContent = st.isOwner && st.role === 0 ? "Shop owner" : st.role === 0 ? "No job yet" : ROLES[st.role];
+        $("#create").hidden = !(st.role === 1 && st.signer);
+        $("#admin").hidden = !(st.isOwner && st.signer);
+        if (st.isOwner) await renderRoles();
+        await renderPieces();
+      }
+
+      async function renderRoles() {
+        const rows = await Promise.all(
+          st.ctx.cfg.accounts.map(async (a) => ({ a, role: Number(await st.ctx.contract.roles(a.address)) }))
+        );
+        $("#roleTable").innerHTML =
+          "<tr><th>Wallet</th><th>Job</th></tr>" +
+          rows.map((r) => `<tr><td>${esc(r.a.label)} <span class="addr">${esc(short(r.a.address))}</span></td><td>${r.role === 0 ? "No job" : esc(ROLES[r.role])}</td></tr>`).join("");
+      }
+
+      function actionHtml(p) {
+        if (p.stage >= 5) return `<p class="muted" style="margin:0">Sold. This piece's journey is complete.</p>`;
+        const next = p.stage + 1;
+        const nextStage = STAGES[next];
+        const neededRole = ROLES.indexOf(nextStage.by);
+        const isMaker = st.address && p.maker.toLowerCase() === st.address.toLowerCase();
+        const can = st.signer && st.role === neededRole && (neededRole !== 1 || isMaker);
+        if (!can) {
+          return `<p class="muted" style="margin:0">Next: <b>${esc(nextStage.label)}</b>, recorded by a ${esc(nextStage.by.toLowerCase())}.</p>`;
+        }
+        return (
+          `<form data-id="${p.id}" data-next="${next}">` +
+          `<div><label for="loc${p.id}">Where</label><input id="loc${p.id}" name="loc" maxlength="60" value="${esc(DEFAULT_PLACE[st.role] || "")}"></div>` +
+          `<div><label for="note${p.id}">Note (optional)</label><input id="note${p.id}" name="note" maxlength="100" placeholder="${esc(nextStage.line)}"></div>` +
+          `<button class="btn" type="submit">Record: ${esc(nextStage.label)}</button>` +
+          `</form>`
+        );
+      }
+
+      async function renderPieces() {
+        const pieces = await BG.listPieces();
+        if (!pieces.length) {
+          $("#pieces").innerHTML = `<p class="muted">No pieces yet. Work as the maker to add the first one.</p>`;
+          return;
+        }
+        $("#pieces").innerHTML = pieces
+          .map((p) => {
+            const dots = STAGES.map((_, i) => `<i class="${i <= p.stage ? "on" : ""}"></i>`).join("");
+            return (
+              `<article class="piece-row">` +
+              `<header><h3>${esc(p.name)}</h3><span class="chip ${p.stage === 5 ? "mint" : ""}">No. ${p.id}: ${esc(STAGES[p.stage].label)}</span></header>` +
+              `<p class="meta">${esc(p.category || "Uncategorised")}, batch ${esc(p.batchCode || "not set")}</p>` +
+              `<div class="dots" aria-hidden="true">${dots}</div>` +
+              actionHtml(p) +
+              `</article>`
+            );
+          })
+          .join("");
+      }
+
+      async function selectAccount(i) {
+        const acct = st.ctx.cfg.accounts[i];
+        st.address = acct.address;
+        st.signer = null;
+        try {
+          st.signer = await st.ctx.provider.getSigner(acct.address);
+          if (statusEl.classList.contains("warn")) say("");
+        } catch (_) {
+          say("Staff actions only work on the computer running the server. You can still look around.", "warn");
+        }
+        await refresh();
+      }
+
+      // ---------------------------------------------------------- events
+      $("#account").addEventListener("change", (e) => selectAccount(Number(e.target.value)).catch((err) => say(esc(errMsg(err)), "bad")));
+
+      $("#createForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const v = (id) => $(id).value.trim();
+        run(
+          "Adding the piece to the blockchain…",
+          async () => {
+            const tx = await st.ctx.contract.connect(st.signer).createProduct(v("#c_name"), v("#c_cat"), v("#c_batch"), v("#c_mat"), v("#c_loc"));
+            await tx.wait();
+            e.target.reset();
+            $("#c_loc").value = "3brokegirls Studio";
+          },
+          `Piece added. Print its QR tag on the <a href="/labels.html">Tags page</a>.`
+        );
+      });
+
+      $("#pieces").addEventListener("submit", (e) => {
+        const form = e.target.closest("form[data-id]");
+        if (!form) return;
+        e.preventDefault();
+        const id = Number(form.dataset.id);
+        const next = Number(form.dataset.next);
+        const loc = form.elements.namedItem("loc").value.trim();
+        const note = form.elements.namedItem("note").value.trim();
+        run(
+          "Recording the step on the blockchain…",
+          async () => {
+            const tx = await st.ctx.contract.connect(st.signer).advance(id, next, loc, note);
+            await tx.wait();
+          },
+          `${esc(STAGES[next].label)} recorded for piece ${id}. <a href="/?id=${id}">See its journey</a>.`
+        );
+      });
+
+      $("#roleForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const acct = st.ctx.cfg.accounts[Number($("#r_acct").value)];
+        const role = Number($("#r_role").value);
+        run(
+          "Saving the job on the blockchain…",
+          async () => {
+            const tx = await st.ctx.contract.connect(st.signer).setRole(acct.address, role);
+            await tx.wait();
+          },
+          `${esc(acct.label)} is now: ${role === 0 ? "no job" : esc(ROLES[role].toLowerCase())}.`
+        );
+      });
+
+      // ------------------------------------------------------------ start
+      try {
+        st.ctx = await BG.init();
+        const accts = st.ctx.cfg.accounts;
+        $("#account").innerHTML = accts.map((a) => `<option value="${a.index}">${esc(a.label)} (${esc(short(a.address))})</option>`).join("");
+        $("#r_acct").innerHTML = $("#account").innerHTML;
+        $("#account").disabled = false;
+        $("#account").value = "1"; // start as the maker
+        await selectAccount(1);
+      } catch (e) {
+        say(esc(BG.initProblem(e)), "bad");
+        $("#pieces").innerHTML = "";
+      }
+    })();
+  </script>
+</body>
+</html>
