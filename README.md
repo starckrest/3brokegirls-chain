@@ -1,137 +1,166 @@
-# 3brokegirls chain
+# 3brokegirls Chain
+### Blockchain-Based Supply Chain Tracking for Handmade Crochet Goods
 
-Blockchain supply-chain tracking for handmade crochet goods.
+3brokegirls Chain is a blockchain-powered supply chain tracking dApp designed to improve transparency and traceability for handmade crochet products. It records each product's journey from the maker to the distributor and retailer, allowing customers to verify its progress through a QR code.
 
-A piece is followed from the studio to its new owner, and every handoff is a transaction on the blockchain:
+The project demonstrates how blockchain technology can help handmade businesses maintain trustworthy product histories and provide customers with greater visibility into the supply chain.
 
+## Key Features
+
+- **Blockchain-based tracking:** Records product lifecycle updates on an Ethereum-compatible blockchain.
+- **Role-based access control:** Separates responsibilities between makers, distributors, and retailers.
+- **Six-stage product journey:** Tracks products through crocheting and packing, shipping and hub arrival, shelf placement, and sale.
+- **Append-only history:** Preserves the sequence of recorded supply chain events.
+- **QR-code product tracking:** Enables customers to access product tracking information through a QR code.
+- **Staff management panel:** Allows authorized participants to update product statuses.
+- **Customer tracking interface:** Provides a simple interface for viewing product progress.
+- **Automated testing:** Includes tests for verifying contract functionality and supply chain operations.
+
+## Technology Stack
+
+| Technology | Purpose |
+|---|---|
+| Solidity | Smart contract development |
+| Ethereum / Ganache | Local blockchain environment |
+| ethers.js v6 | Blockchain interaction |
+| Node.js | Server-side JavaScript runtime |
+| HTML, CSS, JavaScript | Frontend interfaces |
+| QR Codes | Product identification and tracking |
+
+## Supply Chain Workflow
+
+The product moves through six stages:
+
+1. **Crocheted and Packed** — The maker records the product's preparation.
+2. **Shipped** — The distributor records dispatch.
+3. **At the Hub** — The distributor records arrival at the distribution hub.
+4. **On the Shelf** — The retailer records that the product is available for sale.
+5. **Sold** — The retailer records the sale.
+
+Each stage is recorded in chronological order, creating a traceable product history.
+
+## Project Structure
+
+```text
+3brokegirls-chain/
+├── build/
+│   └── CrochetSupplyChain.json
+├── contracts/
+│   └── CrochetSupplyChain.sol
+├── public/
+│   ├── common.js
+│   ├── config.json
+│   ├── index.html
+│   ├── labels.html
+│   ├── logo.svg
+│   ├── staff.html
+│   └── style.css
+├── scripts/
+│   ├── compile.js
+│   ├── deploy.js
+│   ├── dev.js
+│   ├── errtext.js
+│   └── test.js
+├── server.js
+├── package.json
+├── package-lock.json
+└── README.md
 ```
-Maker  ->  Distributor  ->  Retailer  ->  Customer
-Crocheted -> Packed -> Shipped -> At the hub -> On the shelf -> Sold
+
+## Getting Started
+
+### Prerequisites
+
+Install the following before running the project:
+
+- Node.js and npm
+- Ganache or another compatible local Ethereum development blockchain
+- Git
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/starckrest/3brokegirls-chain.git
+cd 3brokegirls-chain
 ```
 
-Each piece gets a QR hang-tag. A customer scans it and sees the full history: who made it, who moved it, where, and when.
-
-**Tech:** Solidity (contract), Ganache (local blockchain), ethers.js, plain HTML/CSS/JS, a small Node server.
-
----
-
-## What you need
-
-- **Node.js 18 or 20 (LTS)** from https://nodejs.org. Check with `node -v`.
-- That's it. Ganache, the Solidity compiler and everything else install with `npm install`.
-
-## Run it (one command)
-
-Open a terminal in this folder, then:
+### 2. Install dependencies
 
 ```bash
 npm install
-npm test        # optional but recommended: checks the contract on your machine
-npm run demo
 ```
 
-`npm run demo` starts a Ganache test chain, compiles and deploys the contract, adds 4 demo pieces, and starts the website.
+### 3. Start the local blockchain
 
-Then open:
+Start Ganache and configure the project to use its RPC endpoint and an appropriate development account.
 
-| Page | Address |
-|------|---------|
-| Customer tracking page | http://localhost:3000 |
-| Staff panel | http://localhost:3000/staff.html |
-| Printable QR hang-tags | http://localhost:3000/labels.html |
+Check the project's configuration files for the expected RPC URL, network settings, and contract deployment requirements.
 
-Try http://localhost:3000/?id=1 first. That's a tote that has made the whole journey.
-
-> The test chain lives in memory. When you stop `npm run demo`, everything resets. Start it again and you get a fresh chain with the same demo pieces.
-
-## Walk a piece through the whole chain
-
-1. Open the **Staff panel**. You start as **3brokegirls Studio** (the Maker).
-2. **Add a new piece**, for example "Strawberry Pouch".
-3. Switch **Working as** to **Stitch Express Logistics** (Distributor) and record *Shipped*, then *At the hub*.
-4. Switch to **Sunday Craft Market** (Retailer) and record *On the shelf*, then *Sold*.
-5. Open the customer page with the piece number, or print its QR tag from the **Tags** page and scan it.
-
-Each role can only record its own steps, in order. If you try something else, the contract refuses and the panel tells you why.
-
-## Scan a QR code with your phone
-
-1. Put your phone on the **same Wi-Fi** as your computer.
-2. On the **Tags** page, choose the address that is *not* `localhost` (it looks like `http://192.168.x.x:3000`). A phone can't open `localhost`, because that means "this phone".
-3. Scan a tag with the phone camera.
-
-People on your Wi-Fi get **read-only** access to the blockchain. Only the computer running the server can add pieces or record steps.
-
-## Using the Ganache app or a separate terminal instead
-
-If you prefer to run Ganache yourself (three steps, three terminals or one app):
+### 4. Compile the smart contract
 
 ```bash
-npm run chain      # terminal 1: starts Ganache on port 8545
-npm run deploy     # terminal 2: compiles, deploys, seeds demo pieces
-npm start          # terminal 2 or 3: starts the website
+node scripts/compile.js
 ```
 
-**Ganache desktop app** (usually port 7545). Quickstart workspace, then:
+### 5. Deploy the smart contract
 
-- Mac / Linux: `RPC_URL=http://127.0.0.1:7545 npm run deploy` then `RPC_URL=http://127.0.0.1:7545 npm start`
-- Windows PowerShell: `$env:RPC_URL="http://127.0.0.1:7545"; npm run deploy; npm start`
-
-Every time you restart Ganache you get a new empty chain, so run `npm run deploy` again.
-
-## Who does what (the smart contract)
-
-`contracts/CrochetSupplyChain.sol`
-
-| Step | Recorded by |
-|------|-------------|
-| Crocheted, Packed | Maker (and only the maker of that piece) |
-| Shipped, At the hub | Distributor |
-| On the shelf, Sold | Retailer |
-
-- The shop owner (the wallet that deployed the contract) gives out the roles with `setRole`.
-- Steps must happen in order. Nothing can be skipped, edited or deleted, and nothing can be added after *Sold*.
-- Anyone can read a piece's history: `getProduct(id)` and `getHistory(id)`.
-
-Ganache account roles (set up by the deploy script):
-
-| Account | Role |
-|---------|------|
-| 0 | Shop owner (admin) |
-| 1 | 3brokegirls Studio (Maker) |
-| 2 | Stitch Express Logistics (Distributor) |
-| 3 | Sunday Craft Market (Retailer) |
-| 4 | Customer wallet |
-
-## Project layout
-
-```
-contracts/CrochetSupplyChain.sol   the smart contract
-scripts/compile.js                 compiles it (solc)
-scripts/deploy.js                  deploys, assigns roles, seeds demo pieces, writes public/config.json
-scripts/dev.js                     "npm run demo": Ganache + deploy + website in one go
-scripts/test.js                    "npm test": contract tests on an in-memory chain
-server.js                          website, /rpc proxy to Ganache, QR code endpoint
-public/index.html                  customer tracking page
-public/staff.html                  staff panel
-public/labels.html                 printable QR hang-tags
-public/common.js, style.css        shared code and look
+```bash
+node scripts/deploy.js
 ```
 
-## Troubleshooting
+Make sure the deployment script is configured for your running local blockchain. Update the application's contract address and network configuration as required after deployment.
 
-**"This site isn't connected to a blockchain yet."** You haven't deployed. Run `npm run demo` (or `npm run deploy`).
+### 6. Start the application
 
-**"The contract isn't on this chain any more."** Ganache was restarted, which wipes the chain. Run `npm run deploy` again.
+```bash
+node scripts/dev.js
+```
 
-**Ganache won't start or crashes on startup.** Ganache can be fussy with very new Node versions. Switch to Node 20 LTS (for example with `nvm install 20 && nvm use 20`), delete `node_modules`, and run `npm install` again.
+Open the local URL printed by the development server in your browser.
 
-**"Port 8545 / 3000 is already in use."** Another Ganache or server is still running. Close it, or pick another port: `PORT=3001 npm start` (PowerShell: `$env:PORT=3001; npm start`).
+> **Note:** These commands reflect the project's script filenames. If your `package.json` defines npm scripts or additional setup requirements, follow those settings.
 
-**QR codes don't work from my phone.** Make sure the phone is on the same Wi-Fi and the Tags page is set to the `192.168.x.x` address. Some guest or office Wi-Fi networks block devices from talking to each other.
+## Testing
 
-**`npm install` shows warnings.** Warnings about deprecated packages or optional native modules are normal. Only errors matter.
+Run the automated smart contract tests using:
 
-## Good to know
+```bash
+node scripts/test.js
+```
 
-This runs on a **local test chain with fake ether**, which is perfect for a demo or a project submission. To make it real, deploy the same contract to a public network (for example Sepolia) and swap the staff panel's Ganache accounts for a wallet such as MetaMask.
+The project includes **13 automated tests** covering smart contract behavior and supply chain operations.
+
+## Security and Limitations
+
+- The project is intended for local development and demonstration.
+- Ganache provides a local blockchain environment, not a production network.
+- Blockchain records are designed to preserve traceability, but they do not independently prove that physical product updates are truthful.
+- Production deployment would require stronger identity verification, key management, contract security reviews, and appropriate data privacy controls.
+
+## Future Enhancements
+
+- Deploy the smart contract to Polygon or another public EVM-compatible network.
+- Integrate wallet-based authentication.
+- Generate unique QR codes for individual products.
+- Add product provenance certificates and downloadable tracking records.
+- Improve role administration and transaction monitoring.
+- Add a responsive interface for mobile devices.
+
+## Academic Project
+
+**Project:** 3brokegirls Chain — Blockchain-Based Supply Chain Tracking for Handmade Crochet Goods  
+**Programme:** B.E. Computer Science and Engineering (AI & ML)  
+**Semester:** VII  
+**Academic Year:** 2026–2027  
+
+### Contributors
+
+- Soha Riyaz Ansari
+- Khadija Hanif Chaus
+- Samiya Khalid Budye
+
+**Project Guide:** Dr. Yogesh M. Gajmal
+
+---
+
+*Built to explore blockchain-based transparency and traceability for handmade crochet products.*
